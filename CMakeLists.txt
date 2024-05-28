@@ -35,10 +35,10 @@ set (COMMON_INCLUDES
 # sources
 set(COMMON_SOURCES )
 
-set(TARGET_SOURCES main.cpp pool.cpp
+set(TARGET_SOURCES main.cpp
 	# operator_overload.cpp
 	)
-set(TEST_SOURCES test_main.cpp pool.cpp)
+set(TEST_SOURCES test_main.cpp)
 
 # default target 'spike.out'
 add_executable(${PROJECT_NAME}.out ${COMMON_SOURCES} ${TARGET_SOURCES})
