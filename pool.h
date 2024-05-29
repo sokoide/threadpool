@@ -7,10 +7,8 @@
 #include <queue>
 #include <vector>
 
-using namespace std;
-
-// uncomment if you want to use pthread
-// #define USE_PTHREAD
+// uncomment if you want to use pthread, uncomment
+// `#add_definitions(-DUSE_PTHREAD) in CMakeList.txt
 
 class ThreadPool {
   public:
@@ -21,7 +19,7 @@ class ThreadPool {
             pthread_create(&pt, nullptr, ThreadPool::LoopWrapper, this);
             threads.emplace_back(pt);
 #else
-            threads.emplace_back(thread(&ThreadPool::Loop, this));
+            threads.push_back(std::thread(&ThreadPool::Loop, this));
             ;
 #endif
         }
@@ -29,7 +27,7 @@ class ThreadPool {
 
     void Stop() {
         {
-            unique_lock<mutex> lock(mtx);
+            std::lock_guard<std::mutex> lock(mtx);
             should_terminate = true;
         }
         cond.notify_all();
@@ -58,7 +56,7 @@ class ThreadPool {
         // wrap the packaged_task
         std::function<void()> wrapper_func = [task_ptr]() { (*task_ptr)(); };
         {
-            unique_lock<mutex> lock(mtx);
+            std::lock_guard<std::mutex> lock(mtx);
             tasks.emplace(wrapper_func);
         }
 
@@ -71,7 +69,7 @@ class ThreadPool {
         while (true) {
             std::function<void()> task;
             {
-                unique_lock<mutex> lock(mtx);
+                std::unique_lock<std::mutex> lock(mtx);
                 cond.wait(lock, [this] {
                     return !tasks.empty() || should_terminate;
                 });
@@ -94,12 +92,12 @@ class ThreadPool {
 
     bool should_terminate = false;
 
-    mutex mtx;
-    condition_variable cond;
+    std::mutex mtx;
+    std::condition_variable cond;
 #ifdef USE_PTHREAD
-    vector<pthread_t> threads;
+    std::vector<pthread_t> threads;
 #else
-    vector<thread> threads;
+    std::vector<std::thread> threads;
 #endif
-    queue<function<void()>> tasks;
+    std::queue<std::function<void()>> tasks;
 };
