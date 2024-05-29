@@ -17,9 +17,9 @@ class ThreadPool {
 #ifdef USE_PTHREAD
             pthread_t pt;
             pthread_create(&pt, nullptr, ThreadPool::LoopWrapper, this);
-            threads.emplace_back(pt);
+            _threads.emplace_back(pt);
 #else
-            threads.push_back(std::thread(&ThreadPool::Loop, this));
+            _threads.push_back(std::thread(&ThreadPool::Loop, this));
             ;
 #endif
         }
@@ -27,20 +27,20 @@ class ThreadPool {
 
     void Stop() {
         {
-            std::lock_guard<std::mutex> lock(mtx);
-            should_terminate = true;
+            std::lock_guard<std::mutex> lock(_mtx);
+            _should_terminate = true;
         }
-        cond.notify_all();
+        _cond.notify_all();
 #ifdef USE_PTHREAD
-        for (auto& active_thread : threads) {
+        for (auto& active_thread : _threads) {
             pthread_join(active_thread, nullptr);
         }
 #else
-        for (auto& active_thread : threads) {
+        for (auto& active_thread : _threads) {
             active_thread.join();
         }
 #endif
-        threads.clear();
+        _threads.clear();
     }
 
     template <typename F, typename... Args>
@@ -56,11 +56,11 @@ class ThreadPool {
         // wrap the packaged_task
         std::function<void()> wrapper_func = [task_ptr]() { (*task_ptr)(); };
         {
-            std::lock_guard<std::mutex> lock(mtx);
-            tasks.emplace(wrapper_func);
+            std::lock_guard<std::mutex> lock(_mtx);
+            _tasks.emplace(wrapper_func);
         }
 
-        cond.notify_one();
+        _cond.notify_one();
         return task_ptr->get_future();
     }
 
@@ -69,17 +69,17 @@ class ThreadPool {
         while (true) {
             std::function<void()> task;
             {
-                std::unique_lock<std::mutex> lock(mtx);
-                cond.wait(lock, [this] {
-                    return !tasks.empty() || should_terminate;
+                std::unique_lock<std::mutex> lock(_mtx);
+                _cond.wait(lock, [this] {
+                    return !_tasks.empty() || _should_terminate;
                 });
-                if (should_terminate) {
+                if (_should_terminate) {
                     return;
                 }
-                if (tasks.empty())
+                if (_tasks.empty())
                     continue;
-                task = tasks.front();
-                tasks.pop();
+                task = _tasks.front();
+                _tasks.pop();
             }
             task();
         }
@@ -90,14 +90,14 @@ class ThreadPool {
         return nullptr;
     }
 
-    bool should_terminate = false;
+    bool _should_terminate = false;
 
-    std::mutex mtx;
-    std::condition_variable cond;
+    std::mutex _mtx;
+    std::condition_variable _cond;
 #ifdef USE_PTHREAD
-    std::vector<pthread_t> threads;
+    std::vector<pthread_t> _threads;
 #else
-    std::vector<std::thread> threads;
+    std::vector<std::thread> _threads;
 #endif
-    std::queue<std::function<void()>> tasks;
+    std::queue<std::function<void()>> _tasks;
 };
