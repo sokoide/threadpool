@@ -1,5 +1,6 @@
 #include "headers.hpp"
-#include "pool.h"
+#include "pool_generic.h"
+#include "pool_specific.h"
 
 using namespace std;
 
@@ -10,7 +11,8 @@ using vvll = vector<vll>;
 using vvvll = vector<vvll>;
 using pll = pair<ll, ll>;
 
-ThreadPool pool;
+ThreadPoolGeneric pg;
+ThreadPoolSpecific<int> pool;
 
 int main() {
     pool.Start(3);

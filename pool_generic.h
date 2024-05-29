@@ -10,16 +10,16 @@
 // uncomment if you want to use pthread, uncomment
 // `#add_definitions(-DUSE_PTHREAD) in CMakeList.txt
 
-class ThreadPool {
+class ThreadPoolGeneric {
   public:
     void Start(int num_threads) {
         for (int i = 0; i < num_threads; i++) {
 #ifdef USE_PTHREAD
             pthread_t pt;
-            pthread_create(&pt, nullptr, ThreadPool::LoopWrapper, this);
+            pthread_create(&pt, nullptr, ThreadPoolGeneric::LoopWrapper, this);
             _threads.emplace_back(pt);
 #else
-            _threads.push_back(std::thread(&ThreadPool::Loop, this));
+            _threads.push_back(std::thread(&ThreadPoolGeneric::Loop, this));
             ;
 #endif
         }
@@ -107,7 +107,7 @@ class ThreadPool {
     }
 
     static void* LoopWrapper(void* p) {
-        reinterpret_cast<ThreadPool*>(p)->Loop();
+        reinterpret_cast<ThreadPoolGeneric*>(p)->Loop();
         return nullptr;
     }
 
