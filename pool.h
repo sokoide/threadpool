@@ -43,9 +43,30 @@ class ThreadPool {
         _threads.clear();
     }
 
+    // if you don't need an argument, or args are already bounded,
+    // use this simpler version
+    // e.g. Queue(func_ptr);
+    template <typename F> auto Queue(F&& f) -> std::future<decltype(f())> {
+        // shared ptr to be able to copy construct / assign
+        auto task_ptr =
+            std::make_shared<std::packaged_task<decltype(f())()>>(f);
+
+        // wrap the packaged_task
+        std::function<void()> wrapper_func = [task_ptr]() { (*task_ptr)(); };
+        {
+            std::lock_guard<std::mutex> lock(_mtx);
+            _tasks.emplace(wrapper_func);
+        }
+
+        _cond.notify_one();
+        return task_ptr->get_future();
+    }
+
+    // if you want to queue a function with arguments, use this.
+    // e.g. QueuTaskWithArgs(func_ptr, 1, 2, 3);
     template <typename F, typename... Args>
-    inline auto Queue(F&& f,
-                      Args&&... args) -> std::future<decltype(f(args...))> {
+    auto QueueWithArgs(F&& f,
+                       Args&&... args) -> std::future<decltype(f(args...))> {
         // func with bounded parameters to make it ready to execute
         std::function<decltype(f(args...))()> func =
             std::bind(std::forward<F>(f), std::forward<Args>(args)...);

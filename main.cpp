@@ -17,7 +17,7 @@ int main() {
     vector<future<int>> v;
 
     for (int i = 0; i < 5; i++) {
-        auto f = pool.Queue([i] {
+        auto func = ([i] {
             using namespace chrono_literals;
             this_thread::sleep_for(1s);
             auto now = chrono::system_clock::now();
@@ -25,6 +25,8 @@ int main() {
             printf("* %d %s", i, ctime(&nowt));
             return i * 10;
         });
+
+        auto f = pool.Queue(func);
         v.emplace_back(std::move(f));
     }
 
