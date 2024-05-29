@@ -43,33 +43,42 @@ class ThreadPool {
         threads.clear();
     }
 
-    std::future<void> Queue(const std::function<void()>& task) {
-        std::packaged_task<void()> ptask(task);
-        std::future<void> f = ptask.get_future();
+    template <typename F, typename... Args>
+    inline auto Queue(F&& f,
+                      Args&&... args) -> std::future<decltype(f(args...))> {
+        // func with bounded parameters to make it ready to execute
+        std::function<decltype(f(args...))()> func =
+            std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+        // shared ptr to be able to copy construct / assign
+        auto task_ptr =
+            std::make_shared<std::packaged_task<decltype(f(args...))()>>(func);
+
+        // wrap the packaged_task
+        std::function<void()> wrapper_func = [task_ptr]() { (*task_ptr)(); };
         {
             std::lock_guard<std::mutex> lock(mtx);
-            // tasks.emplace(std::move(ptask));
-            tasks.push(std::move(ptask));
+            tasks.emplace(wrapper_func);
         }
 
         cond.notify_one();
-        return f;
+        return task_ptr->get_future();
     }
 
   private:
     void Loop() {
         while (true) {
-            std::packaged_task<void()> task;
+            std::function<void()> task;
             {
                 std::unique_lock<std::mutex> lock(mtx);
                 cond.wait(lock, [this] {
                     return !tasks.empty() || should_terminate;
                 });
-                if (should_terminate)
+                if (should_terminate) {
                     return;
+                }
                 if (tasks.empty())
                     continue;
-                task = std::move(tasks.front());
+                task = tasks.front();
                 tasks.pop();
             }
             task();
@@ -90,5 +99,5 @@ class ThreadPool {
 #else
     std::vector<std::thread> threads;
 #endif
-    std::queue<std::packaged_task<void()>> tasks;
+    std::queue<std::function<void()>> tasks;
 };
