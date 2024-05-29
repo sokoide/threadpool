@@ -8,11 +8,14 @@
 #include <vector>
 
 // uncomment if you want to use pthread, uncomment
-// `#add_definitions(-DUSE_PTHREAD) in CMakeList.txt
+// `#add_definitions(-DUSE_PTHREAD)` in CMakeList.txt
 
 template <typename T> class ThreadPoolSpecific {
   public:
     void Start(int num_threads) {
+        if (num_threads <= 0) {
+            throw std::invalid_argument("num_threads must be greater than 0");
+        }
         for (int i = 0; i < num_threads; i++) {
 #ifdef USE_PTHREAD
             pthread_t pt;
@@ -65,9 +68,8 @@ template <typename T> class ThreadPoolSpecific {
                 _cond.wait(lock, [this] {
                     return !_tasks.empty() || _should_terminate;
                 });
-                if (_should_terminate) {
+                if (_should_terminate)
                     return;
-                }
                 if (_tasks.empty())
                     continue;
                 task = std::move(_tasks.front());
