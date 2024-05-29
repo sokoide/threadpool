@@ -78,7 +78,7 @@ class ThreadPool {
                 }
                 if (_tasks.empty())
                     continue;
-                task = _tasks.front();
+                task = std::move(_tasks.front());
                 _tasks.pop();
             }
             task();
